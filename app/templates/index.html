@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wise Budget Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        p, ul {
+            color: #34495e;
+        }
+        .error {
+            color: red;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .transaction-item {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Wise Budget Tracker</h1>
+
+    <!-- Display Current Balance -->
+    <h2>Current Balance</h2>
+    <p>
+        {% if balance is not none %}
+            {{ "%.2f" | format(balance) }} MXN
+        {% else %}
+            Balance data not available.
+        {% endif %}
+    </p>
+
+    <!-- Display Recent Transactions -->
+    <h2>Recent Transactions</h2>
+    {% if transactions %}
+        <ul>
+            {% for transaction in transactions %}
+                <li class="transaction-item">
+                    <strong>{{ transaction.amount }}</strong> - {{ transaction.title }} ({{ transaction.date }})
+                    <!-- Exclude Button -->
+                    <form method="POST" action="{{ url_for('main.exclude_transaction', transaction_id=transaction.id) }}" style="display:inline;">
+                        <button type="submit">Exclude</button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No transactions available.</p>
+    {% endif %}
+
+    <!-- Display Weekly Budget Information -->
+    {% if budget_data %}
+        <h2>Weekly Budget</h2>
+        <p><strong>Budget:</strong> {{ "%.2f" | format(budget_data.weekly_budget) }} MXN</p>
+        <p><strong>Spent:</strong> {{ "%.2f" | format(budget_data.spent) }} MXN</p>
+        <p><strong>Remaining:</strong> {{ "%.2f" | format(budget_data.weekly_budget - budget_data.spent) }} MXN</p>
+        <p><strong>Week Ends:</strong> {{ budget_data.end_date }}</p>
+    {% else %}
+        <p>No budget set for this week.</p>
+    {% endif %}
+
+    <!-- Form to Set Weekly Budget -->
+    <h2>Set Weekly Budget</h2>
+    <form method="POST">
+        <label for="weekly_budget"><strong>Weekly Budget (MXN):</strong></label>
+        <input type="number" name="weekly_budget" id="weekly_budget" step="0.01" required>
+        <button type="submit">Set Budget</button>
+    </form>
+
+    <!-- Display Error Message if Any -->
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% endif %}
+</body>
+</html>
