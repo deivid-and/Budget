@@ -1,9 +1,12 @@
 import sqlite3
+import os
 from datetime import datetime, timedelta
-from .wise_api import fetch_transactions  # Ensure this is imported for transaction fetching
+from .wise_api import fetch_transactions
 
 # Database path
 DB_PATH = "database/app.db"
+DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "MXN")
+
 
 def init_db():
     """
@@ -12,11 +15,12 @@ def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
-        # Create table for weekly budget
+        # Create table for budgets
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS weekly_budget (
+        CREATE TABLE IF NOT EXISTS budgets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            weekly_budget REAL NOT NULL,
+            name TEXT NOT NULL,
+            budget REAL NOT NULL,
             start_date TEXT NOT NULL,
             end_date TEXT NOT NULL,
             spent REAL DEFAULT 0
@@ -32,57 +36,70 @@ def init_db():
         """)
         conn.commit()
 
-def set_weekly_budget(amount):
+
+def set_budget(name, amount, period):
     """
-    Sets the weekly budget by clearing any existing record and inserting a new one.
+    Sets a new budget with a name, amount, and period (weekly, monthly).
+    Clears the previous budget and inserts a new one.
     """
     start_date = datetime.now().date()
-    end_date = start_date + timedelta(days=6)  # Weekly budget ends in 7 days
+
+    if period == "weekly":
+        end_date = start_date + timedelta(days=6)
+    elif period == "monthly":
+        end_date = (start_date.replace(day=1) + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    else:
+        raise ValueError("Invalid budget period selected.")
+
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        # Clear the previous budget
-        cursor.execute("DELETE FROM weekly_budget")
+        # Clear previous budgets
+        cursor.execute("DELETE FROM budgets")
         # Insert the new budget
         cursor.execute("""
-        INSERT INTO weekly_budget (weekly_budget, start_date, end_date, spent)
-        VALUES (?, ?, ?, ?)
-        """, (round(amount, 2), start_date, end_date, 0))
+        INSERT INTO budgets (name, budget, start_date, end_date, spent)
+        VALUES (?, ?, ?, ?, ?)
+        """, (name, round(amount, 2), start_date, end_date, 0))
         conn.commit()
 
-def get_weekly_budget():
+
+def get_all_budgets():
     """
-    Retrieves the current weekly budget data from the database.
+    Retrieves all budgets from the database.
     """
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
-        SELECT weekly_budget, start_date, end_date, spent
-        FROM weekly_budget
-        LIMIT 1
+        SELECT id, name, budget, start_date, end_date, spent
+        FROM budgets
         """)
-        result = cursor.fetchone()
-        if result:
-            return {
-                "weekly_budget": round(result[0], 2),
-                "start_date": result[1],
-                "end_date": result[2],
-                "spent": round(result[3], 2),
+        results = cursor.fetchall()
+        return [
+            {
+                "id": row[0],
+                "name": row[1],
+                "budget": round(row[2], 2),
+                "start_date": row[3],
+                "end_date": row[4],
+                "spent": round(row[5], 2),
             }
-        return None
+            for row in results
+        ]
 
-def calculate_weekly_spent():
+
+def calculate_spent():
     """
-    Calculates the total spending for the current week, excluding marked transactions.
+    Calculates the total spending for the current budget period, excluding marked transactions.
     """
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
         # Get the current budget period
-        cursor.execute("SELECT start_date, end_date FROM weekly_budget LIMIT 1")
+        cursor.execute("SELECT start_date, end_date FROM budgets LIMIT 1")
         result = cursor.fetchone()
 
         if not result:
-            print("No weekly budget found.")
+            print("No budget found.")
             return 0  # No budget set
 
         start_date, end_date = result
@@ -92,41 +109,34 @@ def calculate_weekly_spent():
         # Fetch excluded transactions
         cursor.execute("SELECT transaction_id FROM excluded_transactions")
         excluded_ids = {row[0] for row in cursor.fetchall()}
-        print(f"Excluded transactions: {excluded_ids}")  # Debugging output
 
         # Fetch transactions and calculate spending
         transactions = fetch_transactions()
-        print(f"Fetched transactions: {transactions}")  # Debugging output
         total_spent = 0
         for transaction in transactions:
             try:
-                # Extract transaction details
                 amount, currency = transaction["amount"].split()
-                amount = round(float(amount.replace(",", "")), 2)  # Remove commas and round to 2 decimals
+                amount = round(float(amount.replace(",", "")), 2)
                 transaction_date = datetime.fromisoformat(transaction["date"].replace("Z", ""))
-                transaction_id = transaction.get("id")  # Extract transaction ID
+                transaction_id = transaction.get("id")
 
                 # Skip excluded transactions
                 if transaction_id in excluded_ids:
-                    print(f"Skipping excluded transaction: {transaction_id}")
                     continue
 
-                # Check if the transaction is within the current week and in MXN
-                if currency == "MXN" and start_date <= transaction_date <= end_date:
+                # Check if the transaction matches the budget period and currency
+                if currency == DEFAULT_CURRENCY and start_date <= transaction_date <= end_date:
                     total_spent += amount
-                    print(f"Included transaction: {transaction}")  # Debugging output
-            except (ValueError, KeyError) as e:
-                print(f"Skipping transaction due to error: {e}")  # Debugging output
+            except (ValueError, KeyError):
                 continue
 
-        # Round the total spent and update the 'spent' column in the database
+        # Update the spent column in the database
         total_spent = round(total_spent, 2)
         cursor.execute("""
-        UPDATE weekly_budget
+        UPDATE budgets
         SET spent = ?
-        WHERE start_date = ? AND end_date = ?
-        """, (total_spent, start_date.date(), end_date.date()))
+        WHERE start_date = ?
+        """, (total_spent, start_date.date()))
         conn.commit()
 
-        print(f"Total spent updated: {total_spent}")  # Debugging output
         return total_spent

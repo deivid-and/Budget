@@ -1,9 +1,15 @@
-import os
-import requests
+import os, re, requests, html
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+def clean_html_tags(text):
+    """
+    Removes HTML tags from the input text.
+    """
+    return re.sub(r'<.*?>', '', text)
 
 WISE_API_KEY = os.getenv("WISE_API_KEY")
 WISE_PROFILE_ID = os.getenv("WISE_PROFILE_ID")
@@ -56,8 +62,8 @@ def fetch_transactions():
                 transactions.append({
                     "id": activity["id"],  # Include the transaction ID for exclusion functionality
                     "amount": activity["primaryAmount"],
-                    "title": activity.get("title", "No Title").strip(),
-                    "date": activity["createdOn"]
+                    "title": clean_html_tags(activity.get("title", "No Title").strip()),
+                    "date": datetime.fromisoformat(activity["createdOn"].replace("Z", "")).strftime("%b %d, %Y, %I:%M %p")
                 })
             except KeyError as e:
                 print(f"Skipping malformed activity: {activity}. Missing key: {e}")

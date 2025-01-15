@@ -1,5 +1,6 @@
 .env
-*.db
+database/*
+!database/
 __pycache__/
 instance/
 *.pyc

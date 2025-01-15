@@ -6,86 +6,241 @@
     <title>Wise Budget Tracker</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: #e0e0e0;
+            line-height: 1.6;
         }
-        h1, h2 {
-            color: #2c3e50;
+
+        header {
+            background-color: #1f1f1f;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #333;
         }
-        p, ul {
-            color: #34495e;
+
+        header h1 {
+            color: #ffffff;
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 300;
         }
-        .error {
-            color: red;
+
+        main {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
         }
+
+        h2 {
+            color: #f5f5f5;
+            font-weight: 400;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        table th, table td {
+            padding: 15px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #2d2d2d;
+            color: #bdbdbd;
+            font-weight: 400;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #252525;
+        }
+
+        table tr:hover {
+            background-color: #333333;
+        }
+
+        table td {
+            color: #e0e0e0;
+        }
+
+        /* Buttons */
         button {
-            background-color: #3498db;
+            background-color: #0a84ff;
             color: white;
             border: none;
-            padding: 5px 10px;
+            padding: 10px 15px;
             cursor: pointer;
+            border-radius: 6px;
+            font-size: 0.9em;
+            transition: background-color 0.2s ease-in-out;
         }
+
         button:hover {
-            background-color: #2980b9;
+            background-color: #0066cc;
         }
-        .transaction-item {
-            margin-bottom: 10px;
+
+        button:active {
+            background-color: #004999;
+        }
+
+        /* Form */
+        .form-container {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #1f1f1f;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.4);
+        }
+
+        .form-container label {
+            margin-right: 10px;
+            color: #bdbdbd;
+            font-size: 0.9rem;
+        }
+
+        .form-container input, .form-container select {
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background-color: #2d2d2d;
+            color: #ffffff;
+            margin-right: 10px;
+            font-size: 0.9rem;
+        }
+
+        .form-container input:focus, .form-container select:focus {
+            outline: none;
+            border-color: #0a84ff;
+        }
+
+        .form-container select {
+            appearance: none;
+        }
+
+        .error {
+            color: #ff453a;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 10px;
+            background-color: #1f1f1f;
+            color: #bdbdbd;
+            font-size: 0.8rem;
+            border-top: 1px solid #333;
         }
     </style>
 </head>
 <body>
-    <h1>Wise Budget Tracker</h1>
-
-    <!-- Display Current Balance -->
-    <h2>Current Balance</h2>
-    <p>
-        {% if balance is not none %}
-            {{ "%.2f" | format(balance) }} MXN
+    <header>
+        <h1>Wise Budget Tracker</h1>
+    </header>
+    <main>
+        <h2>Current Balance</h2>
+        <p>
+            {% if balance is not none %}
+                {{ "%.2f" | format(balance) }} {{ DEFAULT_CURRENCY }}
+            {% else %}
+                <em>Balance data not available.</em>
+            {% endif %}
+        </p>
+        <h2>Recent Transactions</h2>
+        {% if transactions %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Amount</th>
+                    <th>Title</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td><strong>{{ transaction.amount }}</strong></td>
+                    <td>{{ transaction.title }}</td>
+                    <td>{{ transaction.date }}</td>
+                    <td>
+                        {% if transaction.id in excluded_ids %}
+                        <form method="POST" action="{{ url_for('main.include_transaction', transaction_id=transaction.id) }}" style="display:inline;">
+                            <button type="submit">Include</button>
+                        </form>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('main.exclude_transaction', transaction_id=transaction.id) }}" style="display:inline;">
+                            <button type="submit">Exclude</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% else %}
-            Balance data not available.
-        {% endif %}
-    </p>
-
-    <!-- Display Recent Transactions -->
-    <h2>Recent Transactions</h2>
-    {% if transactions %}
-        <ul>
-            {% for transaction in transactions %}
-                <li class="transaction-item">
-                    <strong>{{ transaction.amount }}</strong> - {{ transaction.title }} ({{ transaction.date }})
-                    <!-- Exclude Button -->
-                    <form method="POST" action="{{ url_for('main.exclude_transaction', transaction_id=transaction.id) }}" style="display:inline;">
-                        <button type="submit">Exclude</button>
-                    </form>
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
         <p>No transactions available.</p>
-    {% endif %}
-
-    <!-- Display Weekly Budget Information -->
-    {% if budget_data %}
-        <h2>Weekly Budget</h2>
-        <p><strong>Budget:</strong> {{ "%.2f" | format(budget_data.weekly_budget) }} MXN</p>
-        <p><strong>Spent:</strong> {{ "%.2f" | format(budget_data.spent) }} MXN</p>
-        <p><strong>Remaining:</strong> {{ "%.2f" | format(budget_data.weekly_budget - budget_data.spent) }} MXN</p>
-        <p><strong>Week Ends:</strong> {{ budget_data.end_date }}</p>
-    {% else %}
-        <p>No budget set for this week.</p>
-    {% endif %}
-
-    <!-- Form to Set Weekly Budget -->
-    <h2>Set Weekly Budget</h2>
-    <form method="POST">
-        <label for="weekly_budget"><strong>Weekly Budget (MXN):</strong></label>
-        <input type="number" name="weekly_budget" id="weekly_budget" step="0.01" required>
-        <button type="submit">Set Budget</button>
-    </form>
-
-    <!-- Display Error Message if Any -->
-    {% if error %}
+        {% endif %}
+        {% if current_budget %}
+        <h2>Budget Details</h2>
+        <table>
+            <tr>
+                <th>Name</th>
+                <td>{{ current_budget.name }}</td>
+            </tr>
+            <tr>
+                <th>Budget</th>
+                <td>{{ "%.2f" | format(current_budget.amount) }} {{ DEFAULT_CURRENCY }}</td>
+            </tr>
+            <tr>
+                <th>Spent</th>
+                <td>{{ "%.2f" | format(current_budget.spent) }} {{ DEFAULT_CURRENCY }}</td>
+            </tr>
+            <tr>
+                <th>Remaining</th>
+                <td>{{ "%.2f" | format(current_budget.amount - current_budget.spent) }} {{ DEFAULT_CURRENCY }}</td>
+            </tr>
+            <tr>
+                <th>Budget Period Ends</th>
+                <td>{{ current_budget.end_date }}</td>
+            </tr>
+        </table>
+        {% else %}
+        <p>No budget set.</p>
+        {% endif %}
+        <div class="form-container">
+            <h2>Create Budget</h2>
+            <form method="POST">
+                <label for="budget_name"><strong>Budget Name:</strong></label>
+                <input type="text" name="budget_name" id="budget_name" required>
+                <label for="budget_amount"><strong>Budget Amount ({{ DEFAULT_CURRENCY }}):</strong></label>
+                <input type="number" name="budget_amount" id="budget_amount" step="0.01" required>
+                <label for="budget_period"><strong>Budget Period:</strong></label>
+                <select name="budget_period" id="budget_period">
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+                <button type="submit">Create Budget</button>
+            </form>
+        </div>
+        {% if error %}
         <p class="error">{{ error }}</p>
-    {% endif %}
+        {% endif %}
+    </main>
 </body>
 </html>
+
