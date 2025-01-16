@@ -1,14 +1,14 @@
 import sqlite3
 import os
 from flask import Blueprint, render_template, request, redirect, url_for
-from .models import set_budget, calculate_spent
+from .models import create_default_budgets, get_all_budgets, calculate_spent
 from .wise_api import fetch_balance, fetch_transactions
 
 # Database path and default currency
 DB_PATH = "database/app.db"
-DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "MXN")  # Fallback to "MXN" if not set
+DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "MXN")  # Default currency from environment variables
 
-# Define the main blueprint
+# Define the main Blueprint
 main = Blueprint("main", __name__)
 
 @main.route("/", methods=["GET", "POST"])
@@ -20,10 +20,6 @@ def index():
     """
     if request.method == "POST":
         try:
-            # Validate and retrieve budget name
-            name = request.form.get("budget_name", "").strip()
-            if not name:
-                raise ValueError("Budget name is required.")
 
             # Validate and retrieve budget amount
             amount = float(request.form.get("budget_amount"))
@@ -32,11 +28,11 @@ def index():
 
             # Validate and retrieve budget period
             period = request.form.get("budget_period", "weekly").lower()
-            if period not in ["rolling", "weekly", "monthly"]:
+            if period not in ["daily", "weekly", "monthly"]:
                 raise ValueError("Invalid budget period selected.")
 
-            # Set the budget in the database
-            set_budget(name, amount, period)
+            # Create the budget in the database
+            create_default_budgets()  # Ensure default budgets exist
             return redirect(url_for("main.index"))
         except ValueError as e:
             # Render the page with an error message on invalid input
@@ -50,8 +46,9 @@ def index():
             )
 
     # Retrieve all budgets and calculate spent for the current budget
+    create_default_budgets()  # Ensure default budgets are created
     budgets = get_all_budgets()  # Retrieve all budgets from the database
-    current_budget = budgets[0] if budgets else None  # Get the first (active) budget
+    current_budget = budgets[0] if budgets else None  # Use the first active budget
     if current_budget:
         current_budget["spent"] = calculate_spent()
 
@@ -121,26 +118,3 @@ def include_transaction(transaction_id):
     # Recalculate spending after including the transaction
     calculate_spent()
     return redirect(url_for("main.index"))
-
-def get_all_budgets():
-    """
-    Retrieve all budgets from the database.
-    Returns a list of budget dictionaries.
-    """
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        SELECT name, budget, start_date, end_date, spent
-        FROM budgets
-        """)
-        results = cursor.fetchall()
-        return [
-            {
-                "name": row[0],
-                "amount": row[1],
-                "start_date": row[2],
-                "end_date": row[3],
-                "spent": row[4],
-            }
-            for row in results
-        ]

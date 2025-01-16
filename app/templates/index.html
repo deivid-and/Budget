@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Wise Budget Tracker</title>
     <style>
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
             background-color: #121212;
@@ -51,7 +52,8 @@
             overflow: hidden;
         }
 
-        table th, table td {
+        table th,
+        table td {
             padding: 15px;
             text-align: left;
         }
@@ -111,7 +113,8 @@
             font-size: 0.9rem;
         }
 
-        .form-container input, .form-container select {
+        .form-container input,
+        .form-container select {
             padding: 10px;
             border: 1px solid #333;
             border-radius: 6px;
@@ -121,7 +124,8 @@
             font-size: 0.9rem;
         }
 
-        .form-container input:focus, .form-container select:focus {
+        .form-container input:focus,
+        .form-container select:focus {
             outline: none;
             border-color: #0a84ff;
         }
@@ -147,19 +151,22 @@
         }
     </style>
 </head>
+
 <body>
     <header>
         <h1>Wise Budget Tracker</h1>
     </header>
     <main>
+        <!-- Display Current Balance -->
         <h2>Current Balance</h2>
         <p>
-            {% if balance is not none %}
-                {{ "%.2f" | format(balance) }} {{ DEFAULT_CURRENCY }}
-            {% else %}
-                <em>Balance data not available.</em>
+            {% if balance is not none %} {{ "%.2f" | format(balance) }} {{
+            DEFAULT_CURRENCY }} {% else %}
+            <em>Balance data not available.</em>
             {% endif %}
         </p>
+
+        <!-- Display Recent Transactions -->
         <h2>Recent Transactions</h2>
         {% if transactions %}
         <table>
@@ -179,11 +186,17 @@
                     <td>{{ transaction.date }}</td>
                     <td>
                         {% if transaction.id in excluded_ids %}
-                        <form method="POST" action="{{ url_for('main.include_transaction', transaction_id=transaction.id) }}" style="display:inline;">
+                        <!-- Include Transaction Button -->
+                        <form method="POST"
+                            action="{{ url_for('main.include_transaction', transaction_id=transaction.id) }}"
+                            style="display: inline">
                             <button type="submit">Include</button>
                         </form>
                         {% else %}
-                        <form method="POST" action="{{ url_for('main.exclude_transaction', transaction_id=transaction.id) }}" style="display:inline;">
+                        <!-- Exclude Transaction Button -->
+                        <form method="POST"
+                            action="{{ url_for('main.exclude_transaction', transaction_id=transaction.id) }}"
+                            style="display: inline">
                             <button type="submit">Exclude</button>
                         </form>
                         {% endif %}
@@ -195,52 +208,64 @@
         {% else %}
         <p>No transactions available.</p>
         {% endif %}
-        {% if current_budget %}
-        <h2>Budget Details</h2>
+
+        <!-- Display Budget Information -->
+        <h2>Budgets</h2>
+        {% if budgets %}
         <table>
-            <tr>
-                <th>Name</th>
-                <td>{{ current_budget.name }}</td>
-            </tr>
-            <tr>
-                <th>Budget</th>
-                <td>{{ "%.2f" | format(current_budget.amount) }} {{ DEFAULT_CURRENCY }}</td>
-            </tr>
-            <tr>
-                <th>Spent</th>
-                <td>{{ "%.2f" | format(current_budget.spent) }} {{ DEFAULT_CURRENCY }}</td>
-            </tr>
-            <tr>
-                <th>Remaining</th>
-                <td>{{ "%.2f" | format(current_budget.amount - current_budget.spent) }} {{ DEFAULT_CURRENCY }}</td>
-            </tr>
-            <tr>
-                <th>Budget Period Ends</th>
-                <td>{{ current_budget.end_date }}</td>
-            </tr>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Budget</th>
+                    <th>Spent</th>
+                    <th>Remaining</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for budget in budgets %}
+                <tr>
+                    <td>{{ budget.name }}</td>
+                    <td>{{ "%.2f" | format(budget.budget) }} {{ DEFAULT_CURRENCY }}</td>
+                    <td>{{ "%.2f" | format(budget.spent) }} {{ DEFAULT_CURRENCY }}</td>
+                    <td>
+                        {{ "%.2f" | format(budget.budget - budget.spent) }} {{
+                        DEFAULT_CURRENCY }}
+                    </td>
+                    <td>{{ budget.start_date }}</td>
+                    <td>{{ budget.end_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
         {% else %}
-        <p>No budget set.</p>
+        <p>No budgets available.</p>
         {% endif %}
+
+        <!-- Create Budget Form -->
         <div class="form-container">
             <h2>Create Budget</h2>
             <form method="POST">
-                <label for="budget_name"><strong>Budget Name:</strong></label>
-                <input type="text" name="budget_name" id="budget_name" required>
                 <label for="budget_amount"><strong>Budget Amount ({{ DEFAULT_CURRENCY }}):</strong></label>
-                <input type="number" name="budget_amount" id="budget_amount" step="0.01" required>
+                <input type="number" name="budget_amount" id="budget_amount" step="0.01" required />
+
                 <label for="budget_period"><strong>Budget Period:</strong></label>
                 <select name="budget_period" id="budget_period">
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
+                    <option value="daily">Daily Budget</option>
+                    <option value="weekly">Weekly Budget</option>
+                    <option value="monthly">Monthly Budget</option>
                 </select>
+
                 <button type="submit">Create Budget</button>
             </form>
         </div>
+
+        <!-- Display Error Message if Any -->
         {% if error %}
         <p class="error">{{ error }}</p>
         {% endif %}
     </main>
 </body>
-</html>
 
+</html>

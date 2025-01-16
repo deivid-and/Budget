@@ -1,12 +1,12 @@
-import sqlite3
-import os
+import sqlite3, os, pytz
 from datetime import datetime, timedelta
 from .wise_api import fetch_transactions
 
 # Database path
 DB_PATH = "database/app.db"
-DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "MXN")
-
+DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "EUR")
+TIMEZONE = os.getenv("TIMEZONE", "UTC") 
+USER_TIMEZONE = pytz.timezone(TIMEZONE)
 
 def init_db():
     """
@@ -36,32 +36,46 @@ def init_db():
         """)
         conn.commit()
 
-
-def set_budget(name, amount, period):
+def create_default_budgets():
     """
-    Sets a new budget with a name, amount, and period (weekly, monthly).
-    Clears the previous budget and inserts a new one.
+    Automatically creates daily, weekly, and monthly budgets if they do not already exist.
     """
-    start_date = datetime.now().date()
+    current_date = datetime.now(USER_TIMEZONE).date()
 
-    if period == "weekly":
-        end_date = start_date + timedelta(days=6)
-    elif period == "monthly":
-        end_date = (start_date.replace(day=1) + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-    else:
-        raise ValueError("Invalid budget period selected.")
+    # Define budget periods
+    daily_start = current_date
+    daily_end = current_date
+
+    weekly_start = current_date - timedelta(days=current_date.weekday())  # Start of the week (Monday)
+    weekly_end = weekly_start + timedelta(days=6)
+
+    monthly_start = current_date.replace(day=1)  # Start of the month
+    next_month = (monthly_start + timedelta(days=32)).replace(day=1)
+    monthly_end = next_month - timedelta(days=1)  # Last day of the month
+
+    budgets_to_create = [
+        {"name": "Daily Budget", "start_date": daily_start, "end_date": daily_end, "budget": 0.0},
+        {"name": "Weekly Budget", "start_date": weekly_start, "end_date": weekly_end, "budget": 0.0},
+        {"name": "Monthly Budget", "start_date": monthly_start, "end_date": monthly_end, "budget": 0.0},
+    ]
+
 
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        # Clear previous budgets
-        cursor.execute("DELETE FROM budgets")
-        # Insert the new budget
-        cursor.execute("""
-        INSERT INTO budgets (name, budget, start_date, end_date, spent)
-        VALUES (?, ?, ?, ?, ?)
-        """, (name, round(amount, 2), start_date, end_date, 0))
+        for budget in budgets_to_create:
+            # Check if the budget already exists
+            cursor.execute("""
+            SELECT id FROM budgets
+            WHERE name = ? AND start_date = ? AND end_date = ?
+            """, (budget["name"], budget["start_date"].isoformat(), budget["end_date"].isoformat()))
+            
+            if cursor.fetchone() is None:  # If not exists, create it
+                cursor.execute("""
+                INSERT INTO budgets (name, budget, start_date, end_date, spent)
+                VALUES (?, ?, ?, ?, ?)
+                """, (budget["name"], 0.0, budget["start_date"].isoformat(), budget["end_date"].isoformat(), 0))
+                print(f"Created Budget: {budget['name']} for {budget['start_date']} to {budget['end_date']}")  # Debugging
         conn.commit()
-
 
 def get_all_budgets():
     """
@@ -86,7 +100,6 @@ def get_all_budgets():
             for row in results
         ]
 
-
 def calculate_spent():
     """
     Calculates the total spending for the current budget period, excluding marked transactions.
@@ -106,32 +119,49 @@ def calculate_spent():
         start_date = datetime.fromisoformat(start_date)
         end_date = datetime.fromisoformat(end_date)
 
+        print(f"Budget Period: {start_date} to {end_date}")  # Debugging
+
         # Fetch excluded transactions
         cursor.execute("SELECT transaction_id FROM excluded_transactions")
         excluded_ids = {row[0] for row in cursor.fetchall()}
+        print(f"Excluded Transactions: {excluded_ids}")  # Debugging
 
-        # Fetch transactions and calculate spending
+        # Fetch transactions
         transactions = fetch_transactions()
+        print(f"Fetched Transactions: {transactions}")  # Debugging
+
         total_spent = 0
+
         for transaction in transactions:
             try:
+                # Parse transaction details
                 amount, currency = transaction["amount"].split()
+                if currency != DEFAULT_CURRENCY:
+                    print(f"Skipping Transaction: {transaction} due to currency mismatch.")
+                    continue
                 amount = round(float(amount.replace(",", "")), 2)
-                transaction_date = datetime.fromisoformat(transaction["date"].replace("Z", ""))
-                transaction_id = transaction.get("id")
+                transaction_date = datetime.strptime(transaction["date"], "%Y-%m-%d %H:%M:%S")
+                transaction_id = transaction["id"]
+
+                # Debugging: Check transaction details
+                print(f"Transaction: {transaction}")
 
                 # Skip excluded transactions
                 if transaction_id in excluded_ids:
+                    print(f"Excluded Transaction: {transaction_id}")
                     continue
 
-                # Check if the transaction matches the budget period and currency
-                if currency == DEFAULT_CURRENCY and start_date <= transaction_date <= end_date:
+                # Include only transactions in the current currency and budget period
+                if start_date <= transaction_date <= end_date:
                     total_spent += amount
-            except (ValueError, KeyError):
+                    print(f"Included Transaction: {transaction}")
+            except (ValueError, KeyError) as e:
+                print(f"Skipping Transaction: {transaction} due to error: {e}")
                 continue
 
         # Update the spent column in the database
         total_spent = round(total_spent, 2)
+        print(f"Total Spent Calculated: {total_spent}")  # Debugging
         cursor.execute("""
         UPDATE budgets
         SET spent = ?
@@ -140,3 +170,5 @@ def calculate_spent():
         conn.commit()
 
         return total_spent
+
+
