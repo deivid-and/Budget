@@ -1,7 +1,6 @@
 from app import create_app
 from app.models import init_db
 
-# Initialize database and Flask app
 init_db()
 app = create_app()
 
