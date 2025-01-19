@@ -13,6 +13,12 @@
         <h1>Wise Budget Tracker</h1>
     </header>
     <main>
+
+        <!-- Display Error Message if Any -->
+        {% if error %}
+        <p class="no-data">{{ error }}</p>
+        {% endif %}
+
         <!-- Display Current Balance -->
         <section>
             <h2>Current Balance</h2>
@@ -71,98 +77,99 @@
             <p class="no-data">No budgets available.</p>
             {% endif %}
 
-        <!-- Display All Transactions -->
-        <section>
-            <h2>All Transactions</h2>
-            {% if transactions %}
-            <div class="transaction-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Amount</th>
-                            <th>Title</th>
-                            <th>Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for transaction in transactions %}
-                        <tr>
-                            <td><strong>{{ transaction.amount }} {% if transaction.is_manual %} {{ DEFAULT_CURRENCY }}
-                                    {% endif %}</strong></td>
-                            <td>
-                                {{ transaction.title }}
-                                {% if transaction.is_manual %}
-                                <span class="manual-label">Manual</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ transaction.date }}</td>
-                            <td>
-                                {% if transaction.id in excluded_ids %}
-                                <form method="POST"
-                                    action="{{ url_for('main.include_transaction', transaction_id=transaction.id) }}"
-                                    style="display:inline;">
-                                    <button type="submit">Include</button>
-                                </form>
-                                {% else %}
-                                <form method="POST"
-                                    action="{{ url_for('main.exclude_transaction', transaction_id=transaction.id) }}"
-                                    style="display:inline;">
-                                    <button type="submit">Exclude</button>
-                                </form>
-                                {% endif %}
-                                {% if transaction.is_manual %}
-                                <form method="POST"
-                                    action="{{ url_for('main.delete_manual_transaction_route', transaction_id=transaction.id) }}"
-                                    style="display:inline;"
-                                    onsubmit="return confirm('Are you sure you want to delete this transaction?');">
-                                    <button type="submit" class="btn-danger">Delete</button>
-                                </form>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <p>No transactions available.</p>
-            {% endif %}
-        </section>
+            <!-- Display All Transactions -->
+            <section>
+                <h2>All Transactions</h2>
+                {% if transactions %}
+                <div class="transaction-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Amount</th>
+                                <th>Title</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in transactions %}
+                            <tr>
+                                <td><strong>{{ transaction.amount }} {% if transaction.is_manual %} {{ DEFAULT_CURRENCY
+                                        }}
+                                        {% endif %}</strong></td>
+                                <td>
+                                    {{ transaction.title }}
+                                    {% if transaction.is_manual %}
+                                    <span class="manual-label">Manual</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ transaction.date }}</td>
+                                <td>
+                                    {% if transaction.id in excluded_ids %}
+                                    <form method="POST"
+                                        action="{{ url_for('main.include_transaction', transaction_id=transaction.id) }}"
+                                        style="display:inline;">
+                                        <button type="submit">Include</button>
+                                    </form>
+                                    {% else %}
+                                    <form method="POST"
+                                        action="{{ url_for('main.exclude_transaction', transaction_id=transaction.id) }}"
+                                        style="display:inline;">
+                                        <button type="submit">Exclude</button>
+                                    </form>
+                                    {% endif %}
+                                    {% if transaction.is_manual %}
+                                    <form method="POST"
+                                        action="{{ url_for('main.delete_manual_transaction_route', transaction_id=transaction.id) }}"
+                                        style="display:inline;"
+                                        onsubmit="return confirm('Are you sure you want to delete this transaction?');">
+                                        <button type="submit" class="btn-danger">Delete</button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="no-data">No transactions available.</p>
+                {% endif %}
+            </section>
 
-        <!-- Add Manual Transaction Form -->
-        <section>
-            <div class="form-container">
-                <h2>Add <span class="manual-label">Manual</span> Transaction</h2>
-                <form method="POST" action="{{ url_for('main.add_manual_transaction_route') }}">
-                    <div class="form-group">
-                        <label for="transaction_title"><strong>Title:</strong></label>
-                        <input type="text" name="transaction_title" id="transaction_title" placeholder="Enter title"
-                            required />
-                    </div>
+            <!-- Add Manual Transaction Form -->
+            <section>
+                <div class="form-container">
+                    <h2>Add <span class="manual-label">Manual</span> Transaction</h2>
+                    <form method="POST" action="{{ url_for('main.add_manual_transaction_route') }}">
+                        <div class="form-group">
+                            <label for="transaction_title"><strong>Title:</strong></label>
+                            <input type="text" name="transaction_title" id="transaction_title" placeholder="Enter title"
+                                required />
+                        </div>
 
-                    <div class="form-group">
-                        <label for="transaction_amount"><strong>Amount ({{ DEFAULT_CURRENCY }}):</strong></label>
-                        <input type="number" name="transaction_amount" id="transaction_amount" step="0.01"
-                            placeholder="Enter amount" required />
-                    </div>
+                        <div class="form-group">
+                            <label for="transaction_amount"><strong>Amount ({{ DEFAULT_CURRENCY }}):</strong></label>
+                            <input type="number" name="transaction_amount" id="transaction_amount" step="0.01"
+                                placeholder="Enter amount" required />
+                        </div>
 
-                    <div class="form-group">
-                        <label for="transaction_date"><strong>Date:</strong></label>
-                        <input type="date" name="transaction_date" id="transaction_date" required />
-                    </div>
+                        <div class="form-group">
+                            <label for="transaction_date"><strong>Date:</strong></label>
+                            <input type="date" name="transaction_date" id="transaction_date" required />
+                        </div>
 
-                    <div class="form-group">
-                        <label for="transaction_time"><strong>Time (optional):</strong></label>
-                        <input type="time" name="transaction_time" id="transaction_time" />
-                    </div>
+                        <div class="form-group">
+                            <label for="transaction_time"><strong>Time (optional):</strong></label>
+                            <input type="time" name="transaction_time" id="transaction_time" />
+                        </div>
 
-                    <div class="form-group">
-                        <button type="submit" class="btn-primary">Add Transaction</button>
-                    </div>
-                </form>
-            </div>
-        </section>
+                        <div class="form-group">
+                            <button type="submit" class="btn-primary">Add Transaction</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
 
             <!-- Create Budget Form -->
             <div class="form-container">
@@ -189,10 +196,6 @@
                 </form>
             </div>
 
-            <!-- Display Error Message if Any -->
-            {% if error %}
-            <p class="error">{{ error }}</p>
-            {% endif %}
         </section>
 
 
