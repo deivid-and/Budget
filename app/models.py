@@ -1,11 +1,13 @@
-import sqlite3, os, pytz
+import sqlite3
+import os
+import pytz
 from datetime import datetime, timedelta
 from .wise_api import fetch_transactions
 
-# Database path
+# Database path and configuration
 DB_PATH = "database/app.db"
 DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "EUR")
-TIMEZONE = os.getenv("TIMEZONE", "UTC") 
+TIMEZONE = os.getenv("TIMEZONE", "UTC")
 USER_TIMEZONE = pytz.timezone(TIMEZONE)
 
 def init_db():
@@ -34,47 +36,79 @@ def init_db():
             transaction_id TEXT UNIQUE NOT NULL
         )
         """)
+
+        # Create table for manual transactions
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS manual_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            amount REAL NOT NULL,
+            date TEXT NOT NULL,
+            description TEXT NOT NULL
+        )
+        """)
+
         conn.commit()
 
-def create_default_budgets():
+
+def create_budget(amount, period):
     """
-    Automatically creates daily, weekly, and monthly budgets if they do not already exist.
+    Creates a new budget with a specific amount and period (daily, weekly, monthly).
+    Automatically calculates the start and end dates based on the period.
     """
+    # Determine the current date in the user's timezone
     current_date = datetime.now(USER_TIMEZONE).date()
 
-    # Define budget periods
-    daily_start = current_date
-    daily_end = current_date
+    # Calculate the start and end dates based on the budget period
+    if period == "daily":
+        start_date = current_date
+        end_date = current_date
+        name = "Daily Budget"
+    elif period == "weekly":
+        start_date = current_date - timedelta(days=current_date.weekday())  # Start of the week (Monday)
+        end_date = start_date + timedelta(days=6)
+        name = "Weekly Budget"
+    elif period == "monthly":
+        start_date = current_date.replace(day=1)  # First day of the current month
+        next_month = (start_date + timedelta(days=32)).replace(day=1)  # First day of the next month
+        end_date = next_month - timedelta(days=1)  # Last day of the current month
+        name = "Monthly Budget"
+    else:
+        raise ValueError("Invalid period specified. Choose 'daily', 'weekly', or 'monthly'.")
 
-    weekly_start = current_date - timedelta(days=current_date.weekday())  # Start of the week (Monday)
-    weekly_end = weekly_start + timedelta(days=6)
+    print(f"Creating {name}: {start_date} to {end_date}, Amount: {amount}")  # Debugging log
 
-    monthly_start = current_date.replace(day=1)  # Start of the month
-    next_month = (monthly_start + timedelta(days=32)).replace(day=1)
-    monthly_end = next_month - timedelta(days=1)  # Last day of the month
-
-    budgets_to_create = [
-        {"name": "Daily Budget", "start_date": daily_start, "end_date": daily_end, "budget": 0.0},
-        {"name": "Weekly Budget", "start_date": weekly_start, "end_date": weekly_end, "budget": 0.0},
-        {"name": "Monthly Budget", "start_date": monthly_start, "end_date": monthly_end, "budget": 0.0},
-    ]
-
-
+    # Insert the new budget into the database
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        for budget in budgets_to_create:
-            # Check if the budget already exists
-            cursor.execute("""
-            SELECT id FROM budgets
-            WHERE name = ? AND start_date = ? AND end_date = ?
-            """, (budget["name"], budget["start_date"].isoformat(), budget["end_date"].isoformat()))
-            
-            if cursor.fetchone() is None:  # If not exists, create it
-                cursor.execute("""
-                INSERT INTO budgets (name, budget, start_date, end_date, spent)
-                VALUES (?, ?, ?, ?, ?)
-                """, (budget["name"], 0.0, budget["start_date"].isoformat(), budget["end_date"].isoformat(), 0))
-                print(f"Created Budget: {budget['name']} for {budget['start_date']} to {budget['end_date']}")  # Debugging
+
+        # Check if a budget for the same period already exists
+        cursor.execute("""
+        SELECT id FROM budgets
+        WHERE name = ? AND start_date = ? AND end_date = ?
+        """, (name, start_date.isoformat(), end_date.isoformat()))
+        
+        if cursor.fetchone() is not None:
+            raise ValueError(f"A {name.lower()} already exists for this period.")
+
+        # Insert the new budget
+        cursor.execute("""
+        INSERT INTO budgets (name, budget, start_date, end_date, spent)
+        VALUES (?, ?, ?, ?, ?)
+        """, (name, round(amount, 2), start_date.isoformat(), end_date.isoformat(), 0))
+        conn.commit()
+
+
+def delete_budget(budget_id):
+    """
+    Deletes a budget from the database by its ID.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        # Delete the budget by ID
+        cursor.execute("""
+        DELETE FROM budgets
+        WHERE id = ?
+        """, (budget_id,))
         conn.commit()
 
 def get_all_budgets():
@@ -100,75 +134,106 @@ def get_all_budgets():
             for row in results
         ]
 
-def calculate_spent():
+
+def add_manual_transaction(amount, date, description):
     """
-    Calculates the total spending for the current budget period, excluding marked transactions.
+    Adds a manual transaction to the database.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO manual_transactions (amount, date, description)
+        VALUES (?, ?, ?)
+        """, (round(amount, 2), date.isoformat(), description))
+        conn.commit()
+
+
+def get_manual_transactions():
+    """
+    Retrieves all manual transactions from the database.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        SELECT amount, date, description
+        FROM manual_transactions
+        """)
+        results = cursor.fetchall()
+        return [
+            {
+                "amount": row[0],
+                "date": datetime.fromisoformat(row[1]),
+                "description": row[2],
+            }
+            for row in results
+        ]
+
+
+def calculate_all_spent():
+    """
+    Calculates and updates spending for all budgets, including manual and API transactions.
     """
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
-        # Get the current budget period
-        cursor.execute("SELECT start_date, end_date FROM budgets LIMIT 1")
-        result = cursor.fetchone()
+        # Fetch all budgets
+        cursor.execute("""
+        SELECT id, start_date, end_date
+        FROM budgets
+        """)
+        budgets = cursor.fetchall()
 
-        if not result:
-            print("No budget found.")
-            return 0  # No budget set
-
-        start_date, end_date = result
-        start_date = datetime.fromisoformat(start_date)
-        end_date = datetime.fromisoformat(end_date)
-
-        print(f"Budget Period: {start_date} to {end_date}")  # Debugging
+        if not budgets:
+            print("No budgets found.")
+            return
 
         # Fetch excluded transactions
-        cursor.execute("SELECT transaction_id FROM excluded_transactions")
-        excluded_ids = {row[0] for row in cursor.fetchall()}
-        print(f"Excluded Transactions: {excluded_ids}")  # Debugging
-
-        # Fetch transactions
-        transactions = fetch_transactions()
-        print(f"Fetched Transactions: {transactions}")  # Debugging
-
-        total_spent = 0
-
-        for transaction in transactions:
-            try:
-                # Parse transaction details
-                amount, currency = transaction["amount"].split()
-                if currency != DEFAULT_CURRENCY:
-                    print(f"Skipping Transaction: {transaction} due to currency mismatch.")
-                    continue
-                amount = round(float(amount.replace(",", "")), 2)
-                transaction_date = datetime.strptime(transaction["date"], "%Y-%m-%d %H:%M:%S")
-                transaction_id = transaction["id"]
-
-                # Debugging: Check transaction details
-                print(f"Transaction: {transaction}")
-
-                # Skip excluded transactions
-                if transaction_id in excluded_ids:
-                    print(f"Excluded Transaction: {transaction_id}")
-                    continue
-
-                # Include only transactions in the current currency and budget period
-                if start_date <= transaction_date <= end_date:
-                    total_spent += amount
-                    print(f"Included Transaction: {transaction}")
-            except (ValueError, KeyError) as e:
-                print(f"Skipping Transaction: {transaction} due to error: {e}")
-                continue
-
-        # Update the spent column in the database
-        total_spent = round(total_spent, 2)
-        print(f"Total Spent Calculated: {total_spent}")  # Debugging
         cursor.execute("""
-        UPDATE budgets
-        SET spent = ?
-        WHERE start_date = ?
-        """, (total_spent, start_date.date()))
+        SELECT transaction_id
+        FROM excluded_transactions
+        """)
+        excluded_ids = {row[0] for row in cursor.fetchall()}
+
+        # Fetch API transactions
+        transactions = fetch_transactions()
+
+        for budget in budgets:
+            budget_id, start_date, end_date = budget
+            start_date = datetime.fromisoformat(start_date)
+            end_date = datetime.fromisoformat(end_date)
+
+            total_spent = 0
+
+            # Calculate API transactions for this budget
+            for transaction in transactions:
+                try:
+                    amount, currency = transaction["amount"].split()
+                    if currency != DEFAULT_CURRENCY:
+                        continue
+                    amount = round(float(amount.replace(",", "")), 2)
+                    transaction_date = datetime.strptime(transaction["date"], "%Y-%m-%d %H:%M:%S")
+                    transaction_id = transaction["id"]
+
+                    if transaction_id in excluded_ids:
+                        continue
+
+                    if start_date <= transaction_date <= end_date:
+                        total_spent += amount
+                except (ValueError, KeyError):
+                    continue
+
+            # Calculate manual transactions for this budget
+            manual_transactions = get_manual_transactions()
+            for transaction in manual_transactions:
+                if start_date <= transaction["date"] <= end_date:
+                    total_spent += transaction["amount"]
+
+            # Update the spent column for the current budget
+            cursor.execute("""
+            UPDATE budgets
+            SET spent = ?
+            WHERE id = ?
+            """, (round(total_spent, 2), budget_id))
+            print(f"Updated Budget {budget_id}: Spent = {round(total_spent, 2)}")
+
         conn.commit()
-
-        return total_spent
-
-
