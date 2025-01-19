@@ -36,6 +36,7 @@ def index():
             balance=fetch_balance(),
             transactions=fetch_transactions()[:10],
             manual_transactions=get_manual_transactions(),
+            excluded_ids=excluded_ids,
             current_budget=None,
             DEFAULT_CURRENCY=DEFAULT_CURRENCY,
             error="No budgets exist. Please create a budget."
@@ -61,6 +62,7 @@ def index():
         balance=balance,
         transactions=transactions,
         manual_transactions=manual_transactions,
+        excluded_ids=excluded_ids,
         current_budget=budgets[0],
         DEFAULT_CURRENCY=DEFAULT_CURRENCY,
     )
