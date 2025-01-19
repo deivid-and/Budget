@@ -147,7 +147,6 @@ def delete_manual_transaction_route(transaction_id):
         delete_manual_transaction(transaction_id)
         return redirect(url_for("main.index"))
     except Exception as e:
-        print(f"Error deleting manual transaction with ID {transaction_id}: {e}")
         return jsonify({"error": "Failed to delete the manual transaction. Please try again."}), 500
 
 
@@ -173,8 +172,6 @@ def exclude_transaction(transaction_id):
                 VALUES (?)
             """, (transaction_id,))
             conn.commit()
-    except sqlite3.IntegrityError:
-        print(f"Transaction {transaction_id} is already excluded.")
     except Exception as e:
         print(f"Error excluding transaction: {e}")
 

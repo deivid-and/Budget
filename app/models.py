@@ -181,7 +181,6 @@ def delete_manual_transaction(transaction_id):
         cursor = conn.cursor()
         cursor.execute("DELETE FROM manual_transactions WHERE id = ?", (transaction_id,))
         conn.commit()
-        print(f"Deleted manual transaction with ID: {transaction_id}") 
 
 def calculate_all_spent():
     """
@@ -192,9 +191,6 @@ def calculate_all_spent():
 
         cursor.execute("SELECT id, start_date, end_date FROM budgets")
         budgets = cursor.fetchall()
-        if not budgets:
-            print("No budgets found.")
-            return
 
         cursor.execute("SELECT transaction_id FROM excluded_transactions")
         excluded_ids = {row[0] for row in cursor.fetchall()}
