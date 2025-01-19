@@ -9,6 +9,7 @@ from .models import (
     get_manual_transactions,
     create_budget,
     delete_budget,
+    delete_manual_transaction,
 )
 from .wise_api import fetch_balance, fetch_transactions
 
@@ -26,29 +27,38 @@ def index():
     Main route for the app.
     Displays all budgets and calculates spending.
     """
-    budgets = get_all_budgets()  # Fetch all budgets
+    budgets = get_all_budgets()
 
     if not budgets:
-        # No budgets exist; render a message in the template
         return render_template(
             "index.html",
             budgets=None,
             balance=fetch_balance(),
-            transactions=fetch_transactions()[:10],
-            manual_transactions=get_manual_transactions(),
-            excluded_ids=excluded_ids,
+            transactions=[],
+            manual_transactions=[],
+            excluded_ids=set(),
             current_budget=None,
             DEFAULT_CURRENCY=DEFAULT_CURRENCY,
             error="No budgets exist. Please create a budget."
         )
 
-    # Calculate spending for all budgets
     calculate_all_spent()
     balance = fetch_balance()
-    transactions = fetch_transactions()[:10]  # Fetch recent transactions
+    transactions = fetch_transactions()
     manual_transactions = get_manual_transactions()
 
-        # Fetch excluded transactions
+    # Add a flag to manual transactions
+    for transaction in manual_transactions:
+        transaction["is_manual"] = True
+
+    # Add a flag to API transactions
+    for transaction in transactions:
+        transaction["is_manual"] = False
+
+    # Combine manual and API transactions
+    combined_transactions = manual_transactions + transactions
+
+    # Fetch excluded transactions
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -60,8 +70,7 @@ def index():
         "index.html",
         budgets=budgets,
         balance=balance,
-        transactions=transactions,
-        manual_transactions=manual_transactions,
+        transactions=combined_transactions,
         excluded_ids=excluded_ids,
         current_budget=budgets[0],
         DEFAULT_CURRENCY=DEFAULT_CURRENCY,
@@ -93,7 +102,7 @@ def create_budget_route():
             error=str(e),
             budgets=get_all_budgets(),
             balance=fetch_balance(),
-            transactions=fetch_transactions()[:10],
+            transactions=fetch_transactions(),
             manual_transactions=get_manual_transactions(),
             current_budget=None,
             DEFAULT_CURRENCY=DEFAULT_CURRENCY,
@@ -114,16 +123,33 @@ def add_manual_transaction_route():
     Adds a manual transaction to the database.
     """
     try:
-        title = request.form.get("title", "").strip()
-        amount = float(request.form.get("amount"))
-        date = request.form.get("date", datetime.now().strftime("%Y-%m-%d"))
+        title = request.form.get("transaction_title", "").strip()
+        amount = float(request.form.get("transaction_amount"))
+        date_str = request.form.get("transaction_date", datetime.now().strftime("%Y-%m-%d"))
+        time_str = request.form.get("transaction_time")
+        # Validate inputs
         if not title or amount <= 0:
             raise ValueError("Invalid transaction details.")
 
-        add_manual_transaction(title, amount, date)
+        # Convert date to datetime
+        date = datetime.strptime(date_str, "%Y-%m-%d")
+        add_manual_transaction(amount, date, title, time_str)
         return redirect(url_for("main.index"))
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    
+@main.route("/transactions/manual/delete/<int:transaction_id>", methods=["POST"])
+def delete_manual_transaction_route(transaction_id):
+    """
+    Deletes a manual transaction from the database by its ID.
+    """
+    try:
+        delete_manual_transaction(transaction_id)
+        return redirect(url_for("main.index"))
+    except Exception as e:
+        print(f"Error deleting manual transaction with ID {transaction_id}: {e}")
+        return jsonify({"error": "Failed to delete the manual transaction. Please try again."}), 500
+
 
 @main.route("/transactions/manual", methods=["GET"])
 def get_manual_transactions_route():

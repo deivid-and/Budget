@@ -1,15 +1,29 @@
+:root {
+    /* Theme Colors */
+    --primary-color: #007bff;
+    --primary-hover: #0056b3;
+    --danger-color: #dc3545;
+    --danger-hover: #b32b34;
+    --background-color: #121212;
+    --secondary-background: #1f1f1f;
+    --light-gray: #e0e0e0;
+    --medium-gray: #bdbdbd;
+    --dark-gray: #2a2a2a;
+    --highlight-gray: #3b3b3b;
+}
 
+/* General Reset */
 body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #121212;
-    color: #e0e0e0;
+    background-color: var(--background-color);
+    color: var(--light-gray);
     line-height: 1.6;
 }
 
 header {
-    background-color: #1f1f1f;
+    background-color: var(--secondary-background);
     padding: 20px;
     text-align: center;
     border-bottom: 1px solid #333;
@@ -29,7 +43,7 @@ main {
 }
 
 h2 {
-    color: #f5f5f5;
+    color: var(--light-gray);
     font-weight: 400;
     border-bottom: 1px solid #333;
     padding-bottom: 5px;
@@ -40,105 +54,129 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin: 20px 0;
-    background-color: #1e1e1e;
+    background-color: var(--dark-gray);
     border-radius: 8px;
-    overflow: hidden;
 }
 
 table th,
 table td {
-    padding: 15px;
+    padding: 12px 15px;
     text-align: left;
+    border-bottom: 1px solid #444;
 }
 
 table th {
-    background-color: #2d2d2d;
-    color: #bdbdbd;
-    font-weight: 400;
+    background-color: #333;
+    color: var(--medium-gray);
     text-transform: uppercase;
     font-size: 0.9rem;
 }
 
+table td {
+    color: var(--light-gray);
+}
+
 table tr:nth-child(even) {
-    background-color: #252525;
+    background-color: var(--secondary-background);
 }
 
 table tr:hover {
-    background-color: #333333;
-}
-
-table td {
-    color: #e0e0e0;
+    background-color: var(--highlight-gray);
 }
 
 /* Buttons */
 button {
-    background-color: #0a84ff;
+    background-color: var(--primary-color);
     color: white;
     border: none;
     padding: 10px 15px;
     cursor: pointer;
     border-radius: 6px;
-    font-size: 0.9em;
+    font-size: 1rem;
     transition: background-color 0.2s ease-in-out;
 }
 
 button:hover {
-    background-color: #0066cc;
+    background-color: var(--primary-hover);
 }
 
 button:active {
-    background-color: #004999;
+    background-color: var(--highlight-gray);
 }
 
-/* Form */
+button:focus {
+    outline: 2px solid var(--primary-hover);
+    outline-offset: 2px;
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+}
+
+.btn-danger:hover {
+    background-color: var(--danger-hover);
+}
+
+/* Form Styling */
 .form-container {
     margin-top: 20px;
     padding: 20px;
-    background-color: #1f1f1f;
-    border-radius: 10px;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.4);
+    background-color: var(--dark-gray);
+    border-radius: 8px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.form-container label {
-    margin-right: 10px;
-    color: #bdbdbd;
-    font-size: 0.9rem;
+.form-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
 }
 
-.form-container input,
-.form-container select {
+.form-group label {
+    margin-bottom: 5px;
+    font-size: 1rem;
+    font-weight: bold;
+    color: var(--medium-gray);
+}
+
+.form-group input,
+.form-group select {
     padding: 10px;
-    border: 1px solid #333;
-    border-radius: 6px;
-    background-color: #2d2d2d;
-    color: #ffffff;
-    margin-right: 10px;
-    font-size: 0.9rem;
+    font-size: 1rem;
+    border: 1px solid #444;
+    border-radius: 5px;
+    background-color: var(--secondary-background);
+    color: #fff;
 }
 
-.form-container input:focus,
-.form-container select:focus {
+.form-group input:focus,
+.form-group select:focus {
     outline: none;
-    border-color: #0a84ff;
+    border-color: var(--primary-color);
 }
 
-.form-container select {
-    appearance: none;
+/* Section Header */
+.section-header {
+    margin-bottom: 20px;
 }
 
-.error {
-    color: #ff453a;
-    margin-top: 10px;
-    font-size: 0.9rem;
+.section-header h2 {
+    font-size: 1.5rem;
+    color: #fff;
 }
 
-/* Footer */
-footer {
+/* Utility Classes */
+.no-data {
+    color: var(--medium-gray);
+    font-style: italic;
     text-align: center;
-    padding: 10px;
-    background-color: #1f1f1f;
-    color: #bdbdbd;
-    font-size: 0.8rem;
-    border-top: 1px solid #333;
+}
+
+.manual-label {
+    background-color: #444;
+    color: var(--primary-color);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-left: 8px;
+    display: inline-block;
 }
