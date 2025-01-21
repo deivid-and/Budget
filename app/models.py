@@ -5,7 +5,11 @@ from datetime import datetime, timedelta
 from .wise_api import fetch_transactions
 
 # Database path and configuration
-DB_PATH = "database/app.db"
+DB_DIR = os.path.join(os.path.dirname(__file__), 'database')
+if not os.path.exists(DB_DIR):
+    os.makedirs(DB_DIR)
+
+DB_PATH = os.path.join(DB_DIR, 'database.db')
 DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "EUR")
 TIMEZONE = os.getenv("TIMEZONE", "UTC")
 USER_TIMEZONE = pytz.timezone(TIMEZONE)

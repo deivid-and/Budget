@@ -14,7 +14,10 @@ from .models import (
 from .wise_api import fetch_balance, fetch_transactions
 
 # Database path and default currency
-DB_PATH = "database/app.db"
+DB_DIR = os.path.join(os.path.dirname(__file__), 'database')
+if not os.path.exists(DB_DIR):
+    os.makedirs(DB_DIR)
+DB_PATH = os.path.join(DB_DIR, 'database.db')
 DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "MXN")
 
 # Define the main Blueprint
